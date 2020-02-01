@@ -1,16 +1,28 @@
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Error, Method, Request, Response, Server, StatusCode};
 use std::convert::Infallible;
 use std::net::SocketAddr;
-use hyper::{Body, Error, Method, Request, Response, Server, StatusCode};
-use hyper::service::{make_service_fn, service_fn};
 
 mod health;
+mod img;
+mod sitemap;
 
 async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
-    match (req.method(), req.uri().path()) {
-        (&Method::GET, "/health") => health::health(),
-        (&Method::GET, "/images") => Ok(Response::new("Hello, World".into())),
-        (&Method::GET, "/sitemap.xml") => Ok(Response::new("Hello, World".into())),
-        _ => {
+    // if not a GET, return 405
+    if req.method() != &Method::GET {
+        let res = Response::builder()
+            .status(&StatusCode::METHOD_NOT_ALLOWED)
+            .body(Body::empty())
+            .unwrap();
+
+        return Ok(res)
+    }
+
+    let handler = match req.uri().path() {
+        "/health" => health::health,
+        "/images" => img::img,
+        "/sitemap.xml" => sitemap::sitemap,
+        _ => |r: Request<Body>| -> Result<Response<Body>, Error> {
             let res = Response::builder()
                 .status(&StatusCode::NOT_FOUND)
                 .body(Body::empty())
@@ -18,7 +30,9 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
 
             Ok(res)
         }
-    }
+    };
+
+    handler(req)
 }
 
 #[tokio::main]
@@ -28,9 +42,11 @@ async fn main() {
 
     // A `Service` is needed for every connection, so this
     // creates one from our `hello_world` function.
-    let make_svc = make_service_fn(|_conn| async {
-        // service_fn converts our function into a `Service`
-        Ok::<_, Infallible>(service_fn(router))
+    let make_svc = make_service_fn(|_conn| {
+        async {
+            // service_fn converts our function into a `Service`
+            Ok::<_, Infallible>(service_fn(router))
+        }
     });
 
     let server = Server::bind(&addr).serve(make_svc);
