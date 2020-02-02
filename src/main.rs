@@ -2,10 +2,15 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Error, Method, Request, Response, Server, StatusCode};
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use clap::{App, Arg};
 
 mod health;
 mod img;
 mod sitemap;
+
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 
 async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
     // if not a GET, return 405
@@ -18,11 +23,18 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
         return Ok(res)
     }
 
-    let handler = match req.uri().path() {
+    let path = req.uri().path();
+
+    // If an image, use the image handler
+    if path.starts_with("/images/") {
+        return img::img(req);
+    }
+
+    // Match the remaining routes
+    let handler = match path {
         "/health" => health::health,
-        "/images" => img::img,
         "/sitemap.xml" => sitemap::sitemap,
-        _ => |r: Request<Body>| -> Result<Response<Body>, Error> {
+        _ => |_| -> Result<Response<Body>, Error> {
             let res = Response::builder()
                 .status(&StatusCode::NOT_FOUND)
                 .body(Body::empty())
@@ -37,8 +49,26 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
 
 #[tokio::main]
 async fn main() {
-    // We'll bind to 127.0.0.1:3000
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    env_logger::init();
+
+    const BIND: &str = "bind";
+
+    let matches = App::new("quba.fr")
+        .version("0.1")
+        .author("Quentin Barrand <quentin@quba.fr>")
+        .about("https://quba.fr server")
+        .arg(Arg::with_name(BIND)
+            .short("b")
+            .long("bind")
+            .takes_value(true)
+            .default_value("127.0.0.1:8080")
+            .required(true  )
+        )
+        .get_matches();
+
+    let addr: SocketAddr = matches.value_of(BIND).unwrap().parse().unwrap();
+
+    info!("Listening on {}", addr.to_string());
 
     // A `Service` is needed for every connection, so this
     // creates one from our `hello_world` function.
