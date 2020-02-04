@@ -1,5 +1,7 @@
-use hyper::{Request, Response, Body, Error};
-use log::info;
+use {
+    http::Error,
+    hyper::{Request, Response, Body},
+};
 
 pub fn img(req: Request<Body>) -> Result<Response<Body>, Error> {
 //    debug!("Serving images");

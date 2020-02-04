@@ -1,12 +1,17 @@
-use tera::{Template, Tera, Context};
-use hyper::{Body, Error, Request, Response};
+use {
+    http::Error,
+    hyper::{Body, Request, Response},
+    tera::{Tera, Context},
+};
 
-pub fn sitemap(_: Request<Body>) -> Result<Response<Body>, Error> {
-    let mut tera = Tera::default();
+const NAME : &str = "sitemap";
 
-    const NAME : &str = "sitemap";
+// Only compile the template once
+lazy_static! {
+    static ref TEMPLATE: Tera = {
+        let mut t = Tera::default();
 
-    let template = r#"<?xml version="1.0" encoding="UTF-8"?>
+        const TEMPLATE_STR: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://quba.fr/</loc>
@@ -16,17 +21,20 @@ pub fn sitemap(_: Request<Body>) -> Result<Response<Body>, Error> {
     </url>
 </urlset>"#;
 
-    tera.add_raw_template(NAME, template).unwrap();
+        info!("Compiling the sitemap template");
 
+        t.add_raw_template(NAME, TEMPLATE_STR).unwrap();
+        t
+    };
+}
+
+pub fn sitemap(_: Request<Body>) -> Result<Response<Body>, Error> {
     let mut c = Context::new();
     c.insert("last_mod", "never");
 
-    let out = tera.render(NAME, &c).unwrap();
+    let out = TEMPLATE.render(NAME, &c).unwrap();
 
-    let res = Response::builder()
+    Response::builder()
         .header("Content-Length", out.len())
         .body(Body::from(out))
-        .unwrap();
-
-    Ok(res)
 }

@@ -1,9 +1,12 @@
-use domain::core::iana::{Class, Rtype};
-use domain::resolv::Resolver;
-use hyper::{Body, Error, Response, Request};
-use tokio_core::reactor::Core;
+use {
+    domain::core::iana::{Class, Rtype},
+    domain::resolv::Resolver,
+    http::Error,
+    hyper::{Body, Response, Request},
+    tokio_core::reactor::Core,
+};
 
-pub fn health(req: Request<Body>) -> Result<Response<Body>, Error> {
+pub fn health(_: Request<Body>) -> Result<Response<Body>, Error> {
 //    let mut core = Core::new().unwrap();
 //    let resolv = Resolver::new(&core.handle());
 //

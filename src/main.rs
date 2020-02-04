@@ -1,16 +1,18 @@
-use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Error, Method, Request, Response, Server, StatusCode};
-use std::convert::Infallible;
-use std::net::SocketAddr;
-use clap::{App, Arg};
+use {
+    http::Error,
+    hyper::service::{make_service_fn, service_fn},
+    hyper::{Body, Method, Request, Response, Server, StatusCode},
+    std::convert::Infallible,
+    std::net::SocketAddr,
+    clap::{App, Arg},
+};
 
 mod health;
 mod img;
 mod sitemap;
 
-#[macro_use]
-extern crate log;
-extern crate env_logger;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate log;
 
 async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
     // if not a GET, return 405
@@ -35,12 +37,9 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
         "/health" => health::health,
         "/sitemap.xml" => sitemap::sitemap,
         _ => |_| -> Result<Response<Body>, Error> {
-            let res = Response::builder()
+            Response::builder()
                 .status(&StatusCode::NOT_FOUND)
                 .body(Body::empty())
-                .unwrap();
-
-            Ok(res)
         }
     };
 
