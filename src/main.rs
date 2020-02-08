@@ -6,9 +6,12 @@ use {
     std::net::SocketAddr,
     clap::{App, Arg},
 };
+use std::path::Path;
+use hyper::service::Service;
 
 mod health;
 mod img;
+mod router;
 mod sitemap;
 
 #[macro_use] extern crate lazy_static;
@@ -17,12 +20,9 @@ mod sitemap;
 async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
     // if not a GET, return 405
     if req.method() != &Method::GET {
-        let res = Response::builder()
+        return Response::builder()
             .status(&StatusCode::METHOD_NOT_ALLOWED)
             .body(Body::empty())
-            .unwrap();
-
-        return Ok(res)
     }
 
     let path = req.uri().path();
@@ -46,11 +46,21 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
     handler(req)
 }
 
+fn test(dir: String) -> Service {
+
+    let f = async fn() {
+
+    };
+
+    service_fn(f)
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
     const BIND: &str = "bind";
+    const DIR: &str = "dir";
 
     let matches = App::new("quba.fr")
         .version("0.1")
@@ -58,10 +68,16 @@ async fn main() {
         .about("https://quba.fr server")
         .arg(Arg::with_name(BIND)
             .short("b")
-            .long("bind")
+            .long(BIND)
             .takes_value(true)
             .default_value("127.0.0.1:8080")
             .required(true  )
+        )
+        .arg(Arg::with_name(DIR)
+            .short("d")
+            .long(DIR)
+            .takes_value(true)
+            .required(true)
         )
         .get_matches();
 
@@ -74,7 +90,10 @@ async fn main() {
     let make_svc = make_service_fn(|_conn| {
         async {
             // service_fn converts our function into a `Service`
-            Ok::<_, Infallible>(service_fn(router))
+//            Ok::<_, Infallible>(service_fn(router))
+            Ok::<_, Infallible>(router::Router {
+                dir: String::from("/test")
+            })
         }
     });
 
