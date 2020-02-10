@@ -1,14 +1,14 @@
 use {
     http::Error,
+    std::path::Path,
     hyper::{Request, Response, Body},
 };
-use std::path::Path;
 
-pub fn img(req: Request<Body>) -> Result<Response<Body>, Error> {
-//    let path = dir.join(
-//        Path::new(req.uri().path())
-//    );
-//
-//    debug!("Serving {}", path());
+pub fn img(dir: &Path, req: Request<Body>) -> Result<Response<Body>, Error> {
+    let path = dir.join(
+        Path::new(req.uri().path())
+    );
+
+    debug!("Serving {}", path.display());
     Ok(Response::new(Body::empty()))
 }

@@ -4,20 +4,18 @@ use {
     hyper::{Body, Method, Request, Response, Server, StatusCode},
     std::convert::Infallible,
     std::net::SocketAddr,
+    std::path::Path,
     clap::{App, Arg},
 };
-use std::path::Path;
-use hyper::service::Service;
 
 mod health;
 mod img;
-mod router;
 mod sitemap;
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 
-async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
+async fn router(dir: &Path, req: Request<Body>) -> Result<Response<Body>, Error> {
     // if not a GET, return 405
     if req.method() != &Method::GET {
         return Response::builder()
@@ -29,7 +27,7 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
 
     // If an image, use the image handler
     if path.starts_with("/images/") {
-        return img::img(req);
+        return img::img(dir, req);
     }
 
     // Match the remaining routes
@@ -46,21 +44,12 @@ async fn router(req: Request<Body>) -> Result<Response<Body>, Error> {
     handler(req)
 }
 
-fn test(dir: String) -> Service {
-
-    let f = async fn() {
-
-    };
-
-    service_fn(f)
-}
-
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
-    const BIND: &str = "bind";
-    const DIR: &str = "dir";
+    const BIND: &'static str = "bind";
+    const DIR: &'static str = "dir";
 
     let matches = App::new("quba.fr")
         .version("0.1")
@@ -81,19 +70,25 @@ async fn main() {
         )
         .get_matches();
 
-    let addr: SocketAddr = matches.value_of(BIND).unwrap().parse().unwrap();
+    let addr_str = matches.value_of(BIND).unwrap();
+
+    let addr: SocketAddr = addr_str.parse().unwrap_or_else(
+        |_| panic!("{}: could not parse address", addr_str)
+    );
+
+    let dir_str = matches.value_of(DIR).unwrap();
+    let dir = Path::new(dir_str);
 
     info!("Listening on {}", addr.to_string());
 
     // A `Service` is needed for every connection, so this
     // creates one from our `hello_world` function.
-    let make_svc = make_service_fn(|_conn| {
+    let make_svc = make_service_fn(move |_conn| {
         async {
-            // service_fn converts our function into a `Service`
-//            Ok::<_, Infallible>(service_fn(router))
-            Ok::<_, Infallible>(router::Router {
-                dir: String::from("/test")
-            })
+            let router = |req| router(dir, req);
+
+            // service_fn converts our router into a `Service`
+            Ok::<_, Infallible>(service_fn(router))
         }
     });
 
